@@ -1,0 +1,5 @@
+eva/*vcf
+eva/*.vcf.gz.csi
+eva/*_alt_pos.txt
+eva/*.vcf.gz
+eva/*.vcf.gz.csi
