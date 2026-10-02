@@ -255,12 +255,12 @@ bedtools jaccard -a SAMN12920115.sorted.vcf.gz -b ${VCF_FILENAME%.vcf.gz}.sorted
 bedtools intersect -u -a SAMN12920115.sorted.vcf.gz -b ${VCF_FILENAME%.vcf.gz}.sorted.vcf.gz | wc -l # 5102105
 
 bcftools view -e 'F_PASS(GT="ref") == 1' ${VCF_FILENAME} -o ${VCF_FILENAME%.vcf.gz}_homozygous_removed.vcf.gz
-bcftools view -e 'F_PASS(GT="ref") == 1' SAMN12920115.vcf.gz -o SAMN12920115_homozygous_removed.vcf.gz
+bcftools view -e 'F_PASS(GT="ref") == 1' SAMN12920115.vcf.gz -o SAMN12920115_homozygous_removed.vcf.gz 
 
 bcftools index ${VCF_FILENAME%.vcf.gz}_homozygous_removed.vcf.gz
 bcftools index SAMN12920115_homozygous_removed.vcf.gz
 
-bcftools view -v snps SAMN12920115_homozygous_removed.vcf.gz | grep -v "^#" | cut -f2 | sort -u | wc -l # 60973065
+bcftools view -v snps SAMN12920115_homozygous_removed.vcf.gz | grep -v "^#" | cut -f2 | sort -u | wc -l # 29302809
 
 
 bcftools sort -O z -o ${VCF_FILENAME%.vcf.gz}_homozygous_removed.sorted.vcf.gz ${VCF_FILENAME%.vcf.gz}_homozygous_removed.vcf.gz
@@ -289,19 +289,15 @@ bcftools query -f '%POS\n' SAMN12920115.vcf.gz | sort -n -u > reference_all_pos_
 # **3. Isolate the "extra" ALT positions** (in malariagen's set, not in the reference's own ALT set):
 
 comm -23 ${VCF_FILENAME%.vcf.gz}_alt_pos_full.txt reference_alt_pos_full.txt > extra_alt_pos_full.txt
-wc -l extra_alt_pos.txt #
+wc -l extra_alt_pos.txt # 1561739
 
 # **4. Split those into case 1 (absent from reference entirely) vs. case 2 (present in reference, just not as ALT):**
-
 
 comm -23 extra_alt_pos.txt reference_all_pos.txt > case1_absent_from_reference.txt
 comm -12 extra_alt_pos.txt reference_all_pos.txt > case2_present_as_nonalt.txt
 
-wc -l case1_absent_from_reference.txt # 6187449
+wc -l case1_absent_from_reference.txt # 1561739
 wc -l case2_present_as_nonalt.txt # 0
-
-comm -23 ${VCF_FILENAME%.vcf}_alt_pos.txt reference_alt_pos.txt > ${VCF_FILENAME%.vcf}_extra_alt_pos.txt
-wc -l ${VCF_FILENAME%.vcf}_extra_alt_pos.txt
 
 # Sanity check: `case1` + `case2` counts should sum to exactly the `extra_alt_pos.txt` count — a clean partition. If they don't, something's off with the position lists themselves (e.g. duplicate/overlapping records) rather than the underlying question, worth checking first.
 
