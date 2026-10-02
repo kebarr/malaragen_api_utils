@@ -160,7 +160,7 @@ vcf_fileneme = sample_set_data["snp_genotypes_vcf"].iloc[0]
 import time
 
 start = time.time()
-ag3.snp_calls_to_vcf(output_path="/Users/katie.barr/malariagen_api_utils/eva/test_vcf_chrom_2R_restarting_exclude_0_0_refactor_single_sample.vcf", 
+ag3.snp_calls_to_vcf(output_path="/Users/katie.barr/malariagen_api_utils/eva/test_vcf_chrom_2R_pysam.vcf.gz", 
                      sample_sets = ['bergey-2019'],
                      sample_query = f"sample_id == '{sample_id}'",
                      region="2R",
@@ -171,7 +171,7 @@ end = time.time()
 total_time = end-start
 print(f"Total time taken is: {total_time}") 
 
-ag3.snp_calls_to_vcf(output_path="/Users/katie.barr/malariagen_api_utils/eva/test_vcf_chrom_2R_restarting_exclude_0_0.vcf", 
+ag3.snp_calls_to_vcf(output_path="/Users/katie.barr/malariagen_api_utils/eva/test_vcf_chrom_2R_restarting_exclude_0_0.vcf.gz", 
                      sample_sets = ['bergey-2019'],
                      sample_query = f"sample_id == '{sample_id}'",
                      region="2R",
@@ -179,6 +179,19 @@ ag3.snp_calls_to_vcf(output_path="/Users/katie.barr/malariagen_api_utils/eva/tes
                      fields = {"GT", "GQ", "AD", "MQ"},
                      non_ref_only = True,
                      overwrite = True)
+
+
+start = time.time()
+ag3.snp_calls_to_vcf(output_path="/Users/katie.barr/malariagen_api_utils/eva/test_vcf_all_pysam.vcf.gz", 
+                     sample_sets = ['bergey-2019'],
+                     sample_query = f"sample_id == '{sample_id}'",
+                     region=ag3.contigs,
+                     fields = {"GT", "GQ", "AD", "MQ"},
+                     overwrite = True,
+                     site_mask=None)
+end = time.time()
+total_time = end-start
+print(f"Total time taken is: {total_time}") 
 
 
 from malariagen_data.anoph import base_params
@@ -295,3 +308,9 @@ not_0_0 = [i for i in list(gt) if i != '0/0']
 
 # format string
 format_str = "GT:GQ:AD:MQ"
+
+import pysam
+import pysam.bcftools
+pysam.bcftools.index("--csi", "ex2.vcf.gz")
+
+

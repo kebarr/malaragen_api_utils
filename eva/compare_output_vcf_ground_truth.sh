@@ -1,12 +1,12 @@
 # need to compare vcf output to vcf downloaed based on accession
-bgzip SAMN12920115.vcf -o SAMN12920115.vcf.gz
+bgzip SAMN12920115.vcf -o SAMN12920115.vcf.gz # 60973065 SNPs in total
 
 bcftools index SAMN12920115.vcf.gz
 bcftools view -r "2R" SAMN12920115.vcf.gz -u -o SAMN12920115_2R.vcf
 bcftools view -r "2R" SAMN12920115.vcf.gz -o SAMN12920115_2R_no_u_passed_to_bcftools_view.vcf
 
 
-bgzip SAMN12920115_2R.vcf -o SAMN12920115_2R.vcf.gz
+bgzip SAMN12920115_2R.vcf -o SAMN12920115_2R.vcf.gz # 5102105 SNPs in total
 
 bcftools index SAMN12920115_2R.vcf.gz
 
@@ -233,3 +233,115 @@ wc -l /tmp/isect.vcf
 
 bcftools isec -p /tmp/isec_out -n=2 SAMN12920115_2R.vcf.gz test_vcf_chrom_2R_non_ref_only_none_homozygous_removed.vcf.gz
 wc -l /tmp/isec_out/0002.vcf  
+
+
+## test bgzf compressed output
+
+VCF_FILENAME="test_vcf_all_pysam.vcf.gz"
+
+
+# total number of unique positions, indicating that several sites have two or more alternate alleles
+bcftools view -v snps ${VCF_FILENAME} | grep -v "^#" | cut -f2 | sort -u | wc -l # 22573911
+bcftools view -v snps SAMN12920115.vcf.gz | grep -v "^#" | cut -f2 | sort -u | wc -l # 60973065
+
+bcftools isec -p compare_vcfs_full SAMN12920115.vcf.gz ${VCF_FILENAME}
+
+bcftools sort -O z -o SAMN12920115.sorted.vcf.gz SAMN12920115.vcf.gz
+
+# 2. Sort the second VCF file
+bcftools sort -O z -o ${VCF_FILENAME%.vcf.gz}.sorted.vcf.gz "${VCF_FILENAME}"
+bedtools jaccard -a SAMN12920115.sorted.vcf.gz -b ${VCF_FILENAME%.vcf.gz}.sorted.vcf.gz # doesn't work even after sorting
+
+bedtools intersect -u -a SAMN12920115.sorted.vcf.gz -b ${VCF_FILENAME%.vcf.gz}.sorted.vcf.gz | wc -l # 5102105
+
+bcftools view -e 'F_PASS(GT="ref") == 1' ${VCF_FILENAME} -o ${VCF_FILENAME%.vcf.gz}_homozygous_removed.vcf.gz
+bcftools view -e 'F_PASS(GT="ref") == 1' SAMN12920115.vcf.gz -o SAMN12920115_homozygous_removed.vcf.gz
+
+bcftools index ${VCF_FILENAME%.vcf.gz}_homozygous_removed.vcf.gz
+bcftools index SAMN12920115_homozygous_removed.vcf.gz
+
+bcftools view -v snps SAMN12920115_homozygous_removed.vcf.gz | grep -v "^#" | cut -f2 | sort -u | wc -l # 60973065
+
+
+bcftools sort -O z -o ${VCF_FILENAME%.vcf.gz}_homozygous_removed.sorted.vcf.gz ${VCF_FILENAME%.vcf.gz}_homozygous_removed.vcf.gz
+bcftools sort -O z -o SAMN12920115_homozygous_removed.sorted.vcf.gz SAMN12920115_homozygous_removed.vcf.gz
+bedtools jaccard -a SAMN12920115_homozygous_removed.sorted.vcf.gz -b ${VCF_FILENAME%.vcf.gz}_homozygous_removed.sorted.vcf.gz
+# still not working
+bedtools jaccard \
+  -a <(bcftools view -H SAMN12920115_homozygous_removed.sorted.vcf.gz | sed 's/\r//g' | sort -k1,1 -k2,2n) \
+  -b <(bcftools view -H ${VCF_FILENAME%.vcf.gz}_homozygous_removed.sorted.vcf.gz | sed 's/\r//g' | sort -k1,1 -k2,2n)
+
+# 5102105	6663844	0.76564	256482
+
+vcf-compare SAMN12920115_homozygous_removed.sorted.vcf.gz ${VCF_FILENAME%.vcf.gz}_homozygous_removed.sorted.vcf.gz
+
+
+bedtools intersect -u -a SAMN12920115_homozygous_removed.sorted.vcf.gz -b ${VCF_FILENAME%.vcf.gz}_homozygous_removed.sorted.vcf.gz | wc -l
+
+# **2. Extract plain position lists** from all three files you need (malariagen ALT set, reference ALT set, reference *all* positions regardless of genotype):
+
+bcftools view -e 'F_PASS(GT="ref") == 1' SAMN12920115.vcf.gz -o SAMN12920115_alt_only.vcf.gz
+
+bcftools query -f '%POS\n' ${VCF_FILENAME%.vcf.gz}_homozygous_removed.sorted.vcf.gz | sort -n -u > ${VCF_FILENAME%.vcf.gz}_alt_pos_full.txt
+bcftools query -f '%POS\n' SAMN12920115_alt_only.vcf.gz | sort -n -u > reference_alt_pos_full.txt
+bcftools query -f '%POS\n' SAMN12920115.vcf.gz | sort -n -u > reference_all_pos_full.txt``
+# 
+# **3. Isolate the "extra" ALT positions** (in malariagen's set, not in the reference's own ALT set):
+
+comm -23 ${VCF_FILENAME%.vcf.gz}_alt_pos_full.txt reference_alt_pos_full.txt > extra_alt_pos_full.txt
+wc -l extra_alt_pos.txt #
+
+# **4. Split those into case 1 (absent from reference entirely) vs. case 2 (present in reference, just not as ALT):**
+
+
+comm -23 extra_alt_pos.txt reference_all_pos.txt > case1_absent_from_reference.txt
+comm -12 extra_alt_pos.txt reference_all_pos.txt > case2_present_as_nonalt.txt
+
+wc -l case1_absent_from_reference.txt # 6187449
+wc -l case2_present_as_nonalt.txt # 0
+
+comm -23 ${VCF_FILENAME%.vcf}_alt_pos.txt reference_alt_pos.txt > ${VCF_FILENAME%.vcf}_extra_alt_pos.txt
+wc -l ${VCF_FILENAME%.vcf}_extra_alt_pos.txt
+
+# Sanity check: `case1` + `case2` counts should sum to exactly the `extra_alt_pos.txt` count — a clean partition. If they don't, something's off with the position lists themselves (e.g. duplicate/overlapping records) rather than the underlying question, worth checking first.
+
+# **5. If `case2` is non-trivial**, pull out a handful of those exact positions from both VCFs side by side to eyeball:
+
+#
+head -20 case2_present_as_nonalt.txt | awk '{print "2R\t"$1}' > spot_check_regions.txt
+
+bcftools view -R spot_check_regions.txt test_vcf_chrom_2R_site_mask_none.vcf.gz | grep -v "^##"
+bcftools view -R spot_check_regions.txt SAMN12920115_2R.vcf.gz | grep -v "^##"
+# ```
+
+# (`bcftools view -R` needs the inputs tabix-indexed — `bcftools index -t <file>` on each first if you haven't already.) That'll show you `GT`/`GQ`/`AD` side by side at the same positions for both call sets, which is the concrete evidence to bring back if `case2` turns out to be more than a handful of positions.
+
+# Yes — and cleanly. Since case1 and case2 are a strict partition of extra_alt_pos.txt (every extra position falls into exactly one of the two by construction), case2 = 0 means case1 accounts for 100% of the extras. Worth a one-line confirmation that the arithmetic actually closes, just to rule out a sort/comm mishap rather than trusting the zero blindly:
+
+
+wc -l extra_alt_pos.txt case1_absent_from_reference.txt
+# If those two numbers match, this is a clean, confirmed result: every single "extra" ALT-genotype site in the malariagen output is a position that never appears in the reference VCF at all — not one of them is a position where the reference has a 0/0/missing call that snp_calls_to_vcf is wrongly reporting as ALT. That specifically rules out the "genuine miscall" explanation from case 2, and leaves the site-list-scope explanation (the reference VCF's --alleles list was fixed at whatever point that pipeline run happened, while the Zarr's joint site list reflects the current, presumably-larger cohort) as the confirmed cause, not just the leading hypothesis.
+
+# Put together with the earlier result (every reference ALT/het site is present in the malariagen output — zero false negatives) and this one (zero false positives among the extras, in the sense that matters here), that's a genuinely clean bill of health for snp_calls_to_vcf's genotype-calling correctness on this sample/region: the count differences you originally set out to explain are fully accounted for by site-list scope and site_mask filtering, not by any bug in the exporter. Combined with the two real bugs we found and fixed earlier (FORMAT field order, MQ type declaration), I'd call this validation exercise closed out unless you want to repeat it on another sample or region as a second data point.
+
+
+bedtools intersect -u -a SAMN12920115_2R.vcf.gz -b test_vcf_chrom_2R_non_ref_only_none_homozygous_removed.vcf.gz > /tmp/isect.vcf
+echo "exit code: $?"
+wc -l /tmp/isect.vcf
+
+bcftools isec -p /tmp/isec_out -n=2 SAMN12920115_2R.vcf.gz test_vcf_chrom_2R_non_ref_only_none_homozygous_removed.vcf.gz
+wc -l /tmp/isec_out/0002.vcf  
+
+bcftools view -e 'F_PASS(GT="ref") == 1' SAMN12920115_2R.vcf.gz -o SAMN12920115_2R_alt_only.vcf.gz
+bcftools index -t SAMN12920115_2R_alt_only.vcf.gz
+bcftools query -f '%POS\n' test_vcf_chrom_2R_site_mask_none_homozygous_removed2.vcf.gz | sort -n -u > malariagen_alt_pos.txt
+bcftools query -f '%POS\n' SAMN12920115_2R_alt_only.vcf.gz | sort -n -u > reference_alt_pos.txt
+bcftools query -f '%POS\n' SAMN12920115_2R.vcf.gz | sort -n -u > reference_all_pos.txt
+comm -23 malariagen_alt_pos.txt reference_alt_pos.txt > extra_alt_pos.txt
+wc -l extra_alt_pos.txt
+
+comm -23 extra_alt_pos.txt reference_all_pos.txt > case1_absent_from_reference.txt
+comm -12 extra_alt_pos.txt reference_all_pos.txt > case2_present_as_nonalt.txt
+
+wc -l case1_absent_from_reference.txt
+wc -l case2_present_as_nonalt.txt
