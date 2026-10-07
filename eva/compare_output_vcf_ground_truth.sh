@@ -3,6 +3,8 @@ bgzip SAMN12920115.vcf -o SAMN12920115.vcf.gz # 60973065 SNPs in total
 
 bcftools index SAMN12920115.vcf.gz
 bcftools view -r "2R" SAMN12920115.vcf.gz -u -o SAMN12920115_2R.vcf
+bcftools view -r "2L" SAMN12920115.vcf.gz -u -o SAMN12920115_2L.vcf
+
 bcftools view -r "2R" SAMN12920115.vcf.gz -o SAMN12920115_2R_no_u_passed_to_bcftools_view.vcf
 
 
@@ -225,8 +227,6 @@ wc -l extra_alt_pos.txt case1_absent_from_reference.txt
 
 # Put together with the earlier result (every reference ALT/het site is present in the malariagen output — zero false negatives) and this one (zero false positives among the extras, in the sense that matters here), that's a genuinely clean bill of health for snp_calls_to_vcf's genotype-calling correctness on this sample/region: the count differences you originally set out to explain are fully accounted for by site-list scope and site_mask filtering, not by any bug in the exporter. Combined with the two real bugs we found and fixed earlier (FORMAT field order, MQ type declaration), I'd call this validation exercise closed out unless you want to repeat it on another sample or region as a second data point.
 
-
-
 bedtools intersect -u -a SAMN12920115_2R.vcf.gz -b test_vcf_chrom_2R_non_ref_only_none_homozygous_removed.vcf.gz > /tmp/isect.vcf
 echo "exit code: $?"
 wc -l /tmp/isect.vcf
@@ -237,54 +237,65 @@ wc -l /tmp/isec_out/0002.vcf
 
 ## test bgzf compressed output
 
-VCF_FILENAME="test_vcf_all_pysam.vcf.gz"
+VCF_FILENAME="test_vcf_chrom_2R_no_pysam.vcf.gz"
 
 
 # total number of unique positions, indicating that several sites have two or more alternate alleles
-bcftools view -v snps ${VCF_FILENAME} | grep -v "^#" | cut -f2 | sort -u | wc -l # 22573911
-bcftools view -v snps SAMN12920115.vcf.gz | grep -v "^#" | cut -f2 | sort -u | wc -l # 60973065
+bcftools view -v snps ${VCF_FILENAME} | grep -v "^#" | cut -f2 | sort -u | wc -l # 6663844
+bcftools view -v snps SAMN12920115_2R.vcf.gz | grep -v "^#" | cut -f2 | sort -u | wc -l # 5102105
 
-bcftools isec -p compare_vcfs_full SAMN12920115.vcf.gz ${VCF_FILENAME}
+bcftools index ${VCF_FILENAME}
+bcftools isec -p compare_vcfs_no_pysam SAMN12920115_2R.vcf.gz ${VCF_FILENAME}
 
-bcftools sort -O z -o SAMN12920115.sorted.vcf.gz SAMN12920115.vcf.gz
 
 # 2. Sort the second VCF file
-bcftools sort -O z -o ${VCF_FILENAME%.vcf.gz}.sorted.vcf.gz "${VCF_FILENAME}"
-bedtools jaccard -a SAMN12920115.sorted.vcf.gz -b ${VCF_FILENAME%.vcf.gz}.sorted.vcf.gz # doesn't work even after sorting
-
-bedtools intersect -u -a SAMN12920115.sorted.vcf.gz -b ${VCF_FILENAME%.vcf.gz}.sorted.vcf.gz | wc -l # 5102105
 
 bcftools view -e 'F_PASS(GT="ref") == 1' ${VCF_FILENAME} -o ${VCF_FILENAME%.vcf.gz}_homozygous_removed.vcf.gz
-bcftools view -e 'F_PASS(GT="ref") == 1' SAMN12920115.vcf.gz -o SAMN12920115_homozygous_removed.vcf.gz 
+bcftools view -e 'F_PASS(GT="ref") == 1' SAMN12920115_2R.vcf.gz -o SAMN12920115_2R_homozygous_removed.vcf.gz 
 
 bcftools index ${VCF_FILENAME%.vcf.gz}_homozygous_removed.vcf.gz
-bcftools index SAMN12920115_homozygous_removed.vcf.gz
+bcftools index SAMN12920115_2R_homozygous_removed.vcf.gz
 
-bcftools view -v snps SAMN12920115_homozygous_removed.vcf.gz | grep -v "^#" | cut -f2 | sort -u | wc -l # 29302809
+bcftools view -v snps SAMN12920115_2R_homozygous_removed.vcf.gz | grep -v "^#" | cut -f2 | sort -u | wc -l # 29302809
+bcftools view -v snps ${VCF_FILENAME%.vcf.gz}_homozygous_removed.vcf.gz | grep -v "^#" | cut -f2 | sort -u | wc -l # 22573911
 
 
 bcftools sort -O z -o ${VCF_FILENAME%.vcf.gz}_homozygous_removed.sorted.vcf.gz ${VCF_FILENAME%.vcf.gz}_homozygous_removed.vcf.gz
-bcftools sort -O z -o SAMN12920115_homozygous_removed.sorted.vcf.gz SAMN12920115_homozygous_removed.vcf.gz
-bedtools jaccard -a SAMN12920115_homozygous_removed.sorted.vcf.gz -b ${VCF_FILENAME%.vcf.gz}_homozygous_removed.sorted.vcf.gz
-# still not working
-bedtools jaccard \
-  -a <(bcftools view -H SAMN12920115_homozygous_removed.sorted.vcf.gz | sed 's/\r//g' | sort -k1,1 -k2,2n) \
-  -b <(bcftools view -H ${VCF_FILENAME%.vcf.gz}_homozygous_removed.sorted.vcf.gz | sed 's/\r//g' | sort -k1,1 -k2,2n)
+bcftools sort -O z -o SAMN12920115_2R_homozygous_removed.sorted.vcf.gz SAMN12920115_2R_homozygous_removed.vcf.gz
 
+bcftools index ${VCF_FILENAME%.vcf.gz}_homozygous_removed.sorted.vcf.gz
+bcftools index SAMN12920115_2R_homozygous_removed.sorted.vcf.gz
+
+bedtools intersect -u -a SAMN12920115_2R_homozygous_removed.sorted.vcf.gz -b ${VCF_FILENAME%.vcf.gz}_homozygous_removed.sorted.vcf.gz | wc -l
+
+bedtools jaccard -a SAMN12920115_2R_homozygous_removed.sorted.vcf.gz -b ${VCF_FILENAME%.vcf.gz}_homozygous_removed.sorted.vcf.gz # doesn't work even after sorting
 # 5102105	6663844	0.76564	256482
 
-vcf-compare SAMN12920115_homozygous_removed.sorted.vcf.gz ${VCF_FILENAME%.vcf.gz}_homozygous_removed.sorted.vcf.gz
+bcftools isec -p compare_vcfs_full_ag3 SAMN12920115_2R_homozygous_removed.sorted.vcf.gz ${VCF_FILENAME%.vcf.gz}_homozygous_removed.sorted.vcf.gz
+
+wc -l compare_vcfs_full_ag3/0002.vcf # Intesecting records: 27028131 compare_vcfs_full_ag3/0002.vcf
+wc -l compare_vcfs_full_ag3/0000.vcf # Records in first file only: 11872282 compare_vcfs_full_ag3/0000.vcf
+wc -l compare_vcfs_full_ag3/0001.vcf # Records in second file only: 18 compare_vcfs_full_ag3/0001.vcf
+
+bedtools intersect -u -a SAMN12920115_2R_homozygous_removed.sorted.vcf.gz -b ${VCF_FILENAME%.vcf.gz}_homozygous_removed.sorted.vcf.gz | wc -l # 27028101
+bedtools jaccard -a SAMN12920115_2R_homozygous_removed.sorted.vcf.gz -b ${VCF_FILENAME%.vcf.gz}_homozygous_removed.sorted.vcf.gz
+# 3R	6	.	A	C,T,G	.	.	.	GT:GQ:AD:MQ	0/3:22:6,0,0,1:52
+# still not working
+bedtools jaccard \
+  -a <(bcftools view -H SAMN12920115_2R_homozygous_removed.sorted.vcf.gz | sed 's/\r//g' | sort -k1,1 -k2,2n) \
+  -b <(bcftools view -H ${VCF_FILENAME%.vcf.gz}_homozygous_removed.sorted.vcf.gz | sed 's/\r//g' | sort -k1,1 -k2,2n)
 
 
-bedtools intersect -u -a SAMN12920115_homozygous_removed.sorted.vcf.gz -b ${VCF_FILENAME%.vcf.gz}_homozygous_removed.sorted.vcf.gz | wc -l
+vcf-compare SAMN12920115_2R_homozygous_removed.sorted.vcf.gz ${VCF_FILENAME%.vcf.gz}_homozygous_removed.sorted.vcf.gz
+
 
 # **2. Extract plain position lists** from all three files you need (malariagen ALT set, reference ALT set, reference *all* positions regardless of genotype):
 
-bcftools view -e 'F_PASS(GT="ref") == 1' SAMN12920115.vcf.gz -o SAMN12920115_alt_only.vcf.gz
+bcftools view -e 'F_PASS(GT="ref") == 1' SAMN12920115_2R.vcf.gz -o SAMN12920115_2R_alt_only.vcf.gz
 
 bcftools query -f '%POS\n' ${VCF_FILENAME%.vcf.gz}_homozygous_removed.sorted.vcf.gz | sort -n -u > ${VCF_FILENAME%.vcf.gz}_alt_pos_full.txt
-bcftools query -f '%POS\n' SAMN12920115_alt_only.vcf.gz | sort -n -u > reference_alt_pos_full.txt
-bcftools query -f '%POS\n' SAMN12920115.vcf.gz | sort -n -u > reference_all_pos_full.txt``
+bcftools query -f '%POS\n' SAMN12920115_2R_alt_only.vcf.gz | sort -n -u > reference_alt_pos_full.txt
+bcftools query -f '%POS\n' SAMN12920115_2R.vcf.gz | sort -n -u > reference_all_pos_full.txt``
 # 
 # **3. Isolate the "extra" ALT positions** (in malariagen's set, not in the reference's own ALT set):
 
@@ -320,24 +331,44 @@ wc -l extra_alt_pos.txt case1_absent_from_reference.txt
 
 # Put together with the earlier result (every reference ALT/het site is present in the malariagen output — zero false negatives) and this one (zero false positives among the extras, in the sense that matters here), that's a genuinely clean bill of health for snp_calls_to_vcf's genotype-calling correctness on this sample/region: the count differences you originally set out to explain are fully accounted for by site-list scope and site_mask filtering, not by any bug in the exporter. Combined with the two real bugs we found and fixed earlier (FORMAT field order, MQ type declaration), I'd call this validation exercise closed out unless you want to repeat it on another sample or region as a second data point.
 
+# chroms in random example VCF:
+##contig=<ID=2R>
+##contig=<ID=2L>
+##contig=<ID=3R>
+##contig=<ID=3L>
+##contig=<ID=X>
 
-bedtools intersect -u -a SAMN12920115_2R.vcf.gz -b test_vcf_chrom_2R_non_ref_only_none_homozygous_removed.vcf.gz > /tmp/isect.vcf
-echo "exit code: $?"
-wc -l /tmp/isect.vcf
+# chroms in SAMN12920115.vcf.gz:
+##contig=<ID=2R,length=61545105>
+##contig=<ID=3R,length=53200684>
+##contig=<ID=2L,length=49364325>
+##contig=<ID=UNKN,length=42389979>
+##contig=<ID=3L,length=41963435>
+##contig=<ID=X,length=24393108>
+##contig=<ID=Y_unplaced,length=237045>
+##contig=<ID=Mt,length=15363>
+# so in ref VCF but not outpu, 42642387 sites
+# sites in ref (before removal of homozygous sites) but not in output, 60973065 - 22573911= 38399154 sites
+# sites in ref (after removal of homozygous sites) but not in output, 29302809 - 22573911= 6728898 sites
 
-bcftools isec -p /tmp/isec_out -n=2 SAMN12920115_2R.vcf.gz test_vcf_chrom_2R_non_ref_only_none_homozygous_removed.vcf.gz
-wc -l /tmp/isec_out/0002.vcf  
+bcftools view -H SAMN12920115_homozygous_removed.sorted.vcf.gz | awk '{print $1}' | sort | uniq -c
+# 6446528 2L
+# 6663844 2R
+# 4779460 3L
+# 6257336 3R
+#   30 Mt
+# 11755964 UNKN
+# 2880933 X
+# 116258 Y_unplaced
 
-bcftools view -e 'F_PASS(GT="ref") == 1' SAMN12920115_2R.vcf.gz -o SAMN12920115_2R_alt_only.vcf.gz
-bcftools index -t SAMN12920115_2R_alt_only.vcf.gz
-bcftools query -f '%POS\n' test_vcf_chrom_2R_site_mask_none_homozygous_removed2.vcf.gz | sort -n -u > malariagen_alt_pos.txt
-bcftools query -f '%POS\n' SAMN12920115_2R_alt_only.vcf.gz | sort -n -u > reference_alt_pos.txt
-bcftools query -f '%POS\n' SAMN12920115_2R.vcf.gz | sort -n -u > reference_all_pos.txt
-comm -23 malariagen_alt_pos.txt reference_alt_pos.txt > extra_alt_pos.txt
-wc -l extra_alt_pos.txt
+# sites present in ref VCF but not output: 11872252
 
-comm -23 extra_alt_pos.txt reference_all_pos.txt > case1_absent_from_reference.txt
-comm -12 extra_alt_pos.txt reference_all_pos.txt > case2_present_as_nonalt.txt
+bcftools view -H ${VCF_FILENAME%.vcf.gz}_homozygous_removed.sorted.vcf.gz | awk '{print $1}' | sort | uniq -c
 
-wc -l case1_absent_from_reference.txt
-wc -l case2_present_as_nonalt.txt
+# 6446528 2L
+# 6663844 2R
+# 4779460 3L
+# 6257336 3R
+# 2880933 X
+
+bcftools stats ${VCF_FILENAME%.vcf.gz}_homozygous_removed.sorted.vcf.gz > output_bcftools_stats2.txt

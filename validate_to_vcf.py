@@ -160,7 +160,7 @@ vcf_fileneme = sample_set_data["snp_genotypes_vcf"].iloc[0]
 import time
 
 start = time.time()
-ag3.snp_calls_to_vcf(output_path="/Users/katie.barr/malariagen_api_utils/eva/test_vcf_chrom_2R_pysam.vcf.gz", 
+ag3.snp_calls_to_vcf(output_path="/Users/katie.barr/malariagen_api_utils/eva/test_vcf_chrom_2R_no_pysam.vcf.gz", 
                      sample_sets = ['bergey-2019'],
                      sample_query = f"sample_id == '{sample_id}'",
                      region="2R",
@@ -170,6 +170,20 @@ ag3.snp_calls_to_vcf(output_path="/Users/katie.barr/malariagen_api_utils/eva/tes
 end = time.time()
 total_time = end-start
 print(f"Total time taken is: {total_time}") 
+
+start = time.time()
+ag3.snp_calls_to_vcf(output_path="/Users/katie.barr/malariagen_api_utils/eva/test_vcf_chrom_2L_pysam.vcf.gz", 
+                     sample_sets = ['bergey-2019'],
+                     sample_query = f"sample_id == '{sample_id}'",
+                     region="2L",
+                     fields = {"GT", "GQ", "AD", "MQ"},
+                     overwrite = True,
+                     site_mask=None)
+end = time.time()
+total_time = end-start
+print(f"Total time taken is: {total_time}") 
+# pre edit: Total time taken is: 140.784765958786
+
 
 ag3.snp_calls_to_vcf(output_path="/Users/katie.barr/malariagen_api_utils/eva/test_vcf_chrom_2R_restarting_exclude_0_0.vcf.gz", 
                      sample_sets = ['bergey-2019'],
@@ -182,7 +196,7 @@ ag3.snp_calls_to_vcf(output_path="/Users/katie.barr/malariagen_api_utils/eva/tes
 
 
 start = time.time()
-ag3.snp_calls_to_vcf(output_path="/Users/katie.barr/malariagen_api_utils/eva/test_vcf_all_pysam.vcf.gz", 
+ag3.snp_calls_to_vcf(output_path="/Users/katie.barr/malariagen_api_utils/eva/test_vcf_all_pysam_refactored.vcf.gz", 
                      sample_sets = ['bergey-2019'],
                      sample_query = f"sample_id == '{sample_id}'",
                      region=ag3.contigs,
