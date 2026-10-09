@@ -25,9 +25,9 @@ runs_dir = Path("executed_runs")
 runs_dir.mkdir(exist_ok=True)
 
 # 3. Execute runs systematically
-template_nb = "test_capture_mem_output.ipynb"
+template_nb = "test_capture_metrics_default.ipynb"
 
-run_name = "10_samples_10_increments"
+run_name = "10_samples_10_increments_default_vcf"
 for idx, params in enumerate(param_combinations, start=1):
     output_nb = runs_dir / f"run_{idx}_{params['size_increment']}_{params['dataset_size']}.ipynb"
     print(f"[{idx}/{len(param_combinations)}] Running with: {params}")
