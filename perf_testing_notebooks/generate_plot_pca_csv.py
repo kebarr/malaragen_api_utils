@@ -3,7 +3,7 @@ import csv
 import json
 from pathlib import Path
 
-notebook_path = Path("perf_testing_notebooks/notebooks/plot_pca.ipynb")
+notebook_path = Path("notebooks/plot_pca.ipynb")
 notebook = json.loads(notebook_path.read_text())
 
 parameter_source = "".join(notebook["cells"][0]["source"])
